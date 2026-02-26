@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <!-- <canvas id="myCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas> -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
+    <script src="chart.js"></script>
+    <!-- <script>
+        MyCanvas()
+    </script>
+    <canvas id="Canvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
+    <script>
+        Canvas()
+    </script> -->
+    <canvas id="timeChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
+    <canvas id="magChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
+    <script>
+        const samples = generateSine(5, 1024, 1024);
+        plotTimeDomain(samples);
+        
+        const signal = samples.map(v => ({ re: v, im: 0 }));
+        const result = fft(signal);
+        plotFFT(result);
+    </script>
+   
+</body> 
+
+</html>
