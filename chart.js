@@ -23,91 +23,6 @@
 //     });
 // }
 
-// function Canvas() {
-
-//     // 1. Hämta canvas-elementet
-//     const canvasTvå = document.getElementById("Canvas");
-
-//     // 2. Hämta rit-contexten
-//     const ctx = canvasTvå.getContext("2d");
-
-//     // 3. Skapa grafen
-//     const chart = new Chart(ctx, {
-//         type: "line",
-//         data: {
-//             labels: xVärden,
-//             datasets: [{
-//                 backgroundColor: 'blue',
-//                 data: yVärden,
-//                 borderWidth: 5,
-//                 pointRadius: 10,
-//                 pointHoverRadius: 15
-                
-//             }]
-//         },
-//         options: {
-//             scales: {
-//                 y:{
-//                     min : 0,
-//                     max:100
-//                 }
-//             }
-//         }
-//     });
-
-//     // 4. Variabel för aktiv punkt
-//     let activePoint = null;
-
-//     // 5. Klicka på punkt
-//     canvasTvå.addEventListener('mousedown', function(event) {
-//         const points = chart.getElementsAtEventForMode(
-//             event,
-//             'nearest',
-//             { intersect: true },
-//             false
-//         );
-//         if (points.length) {
-//             activePoint = points[0];
-//         }
-//     });
-
-//     // 6. Dra punkt
-//     let isUpdating = false;
-
-//     canvasTvå.addEventListener('mousemove', function(event) {
-//         if (!activePoint) return;
-
-//         if (!isUpdating) {
-//             isUpdating = true;
-
-//             requestAnimationFrame(() => {
-//                 // Kolla igen om activePoint fortfarande finns
-//                 if (!activePoint) {
-//                     isUpdating = false;
-//                     return;
-//                 }
-
-//                 const yScale = chart.scales.y;
-
-//                 const rect = canvasTvå.getBoundingClientRect();
-//                 const yPixel = event.clientY - rect.top;
-
-//                 const newValue = yScale.getValueForPixel(yPixel);
-
-//                 chart.data.datasets[activePoint.datasetIndex].data[activePoint.index] = newValue;
-//                 chart.update('none');
-
-//                 isUpdating = false;
-//             });
-//         }
-//     });
-
-//     // 7. Släpp punkt
-//     canvasTvå.addEventListener('mouseup', function() {
-//         activePoint = null;
-//     });
-// }
-
 
 
 
@@ -139,6 +54,9 @@
  * @param {Array} input - Array of complex numbers {re, im}
  * @returns {Array} - Array of transformed complex numbers
  */
+let timeChart = null;
+let magChart = null;
+let fftChart = null;
 
 function generateSine(frequency, sampleRate, sampleCount) {
     const samples = [];
@@ -183,7 +101,7 @@ function fft(input) {
 function plotFFT(result) {
     const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
     
-    new Chart(document.getElementById("magChart"), {
+    fftChart = new Chart(document.getElementById("magChart"), {
         type: "line",
         data: {
             labels: magnitudes.map((_, i) => i),
@@ -198,9 +116,16 @@ function plotFFT(result) {
     });
 }
 
+function updateFFT(result) {
+    const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+    fftChart.data.datasets[0].data = magnitudes;
+    fftChart.update("none");
+}
 
 function plotTimeDomain(samples) {
-    const a = new Chart(document.getElementById("timeChart"), {
+    if (timeChart) timeChart.destroy();
+
+    timeChart = new Chart(document.getElementById("timeChart"), {
         type: "line",
         data: {
             labels: samples.map((_, i) => i),
@@ -209,10 +134,67 @@ function plotTimeDomain(samples) {
                 data: samples,
                 borderColor: "blue",
                 borderWidth: 1,
-                pointRadius: 0
+                pointRadius: 6,   // gör punkterna klickbara
+                pointHoverRadius: 7
             }]
         },
         options: {
+            animation: false
         }
+    });
+
+    makeTimeChartInteractive();
+}
+
+
+
+
+function makeTimeChartInteractive() {
+    const canvas = document.getElementById("timeChart");
+    let activePoint = null;
+    let isUpdating = false;
+
+    canvas.addEventListener("mousedown", (event) => {
+        const points = timeChart.getElementsAtEventForMode(
+            event,
+            "nearest",
+            { intersect: true },
+            false
+        );
+        if (points.length) activePoint = points[0];
+    });
+
+    canvas.addEventListener("mousemove", (event) => {
+        if (!activePoint) return;
+        if (isUpdating) return;
+
+        isUpdating = true;
+
+        requestAnimationFrame(() => {
+            if (!activePoint) {
+                isUpdating = false;
+                return;
+            }
+            
+            const yScale = timeChart.scales.y;
+            const rect = canvas.getBoundingClientRect();
+            const yPixel = event.clientY - rect.top;
+            const newValue = yScale.getValueForPixel(yPixel);
+
+            timeChart.data.datasets[0].data[activePoint.index] = newValue;
+            timeChart.update("none");
+
+            // Uppdatera FFT
+            const samples = timeChart.data.datasets[0].data;
+            const signal = samples.map(v => ({ re: v, im: 0 }));
+            const result = fft(signal);
+            updateFFT(result);
+            
+            isUpdating = false;
+        });
+    });
+
+    canvas.addEventListener("mouseup", () => {
+        activePoint = null;
     });
 }

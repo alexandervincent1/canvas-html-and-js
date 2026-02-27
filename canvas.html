@@ -21,14 +21,12 @@
     <canvas id="timeChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
     <canvas id="magChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
     <script>
-        const samples = generateSine(5, 1024, 1024);
-        plotTimeDomain(samples);
+        let samples = generateSine(5, 64, 64);
+        let signal = samples.map(v => ({ re: v, im: 0 }));
+        let result = fft(signal); 
         
-        const signal = samples.map(v => ({ re: v, im: 0 }));
-        const result = fft(signal);
-        plotFFT(result);
-    </script>
+    </script>>
+    <button onclick="plotTimeDomain(samples),plotFFT(result)">Generate sine</button>
    
-</body> 
 
 </html>
