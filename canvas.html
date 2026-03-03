@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>D</title>
 </head>
 
 <body>
@@ -21,12 +21,12 @@
     <canvas id="timeChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
     <canvas id="magChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
     <script>
-        let samples = generateSine(5, 64, 64);
-        let signal = samples.map(v => ({ re: v, im: 0 }));
-        let result = fft(signal); 
         
-    </script>>
-    <button onclick="plotTimeDomain(samples),plotFFT(result)">Generate sine</button>
+    </script>
+    <button onclick="generateNewSine()">Generate sine</button>
+    <button onclick="reset()">Reset</button>
+    <input id="formulaInput" placeholder="sin(5*x) + cos(2*x)">
+    <button onclick="generateFromFormula()">Generate</button>   
    
 
 </html>

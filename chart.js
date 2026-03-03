@@ -18,7 +18,7 @@
 //             }]
 //         },
 //         options: {
-           
+
 //         }
 //     });
 // }
@@ -60,7 +60,7 @@ let fftChart = null;
 
 function generateSine(frequency, sampleRate, sampleCount) {
     const samples = [];
-    for (let n = 0; n < sampleCount; n++){
+    for (let n = 0; n < sampleCount; n++) {
         const t = n / sampleRate;
         samples.push(Math.sin(2 * Math.PI * frequency * t))
     }
@@ -100,7 +100,7 @@ function fft(input) {
 
 function plotFFT(result) {
     const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
-    
+
     fftChart = new Chart(document.getElementById("magChart"), {
         type: "line",
         data: {
@@ -175,7 +175,7 @@ function makeTimeChartInteractive() {
                 isUpdating = false;
                 return;
             }
-            
+
             const yScale = timeChart.scales.y;
             const rect = canvas.getBoundingClientRect();
             const yPixel = event.clientY - rect.top;
@@ -189,7 +189,7 @@ function makeTimeChartInteractive() {
             const signal = samples.map(v => ({ re: v, im: 0 }));
             const result = fft(signal);
             updateFFT(result);
-            
+
             isUpdating = false;
         });
     });
@@ -197,4 +197,54 @@ function makeTimeChartInteractive() {
     canvas.addEventListener("mouseup", () => {
         activePoint = null;
     });
+}
+
+
+function reset() {
+    timeChart.destroy();
+    fftChart.destroy();
+    fftChart = null;
+    timeChart = null;
+
+}
+
+function generateNewSine() {
+    let samples = generateSine(5, 64, 64);
+    let signal = samples.map(v => ({ re: v, im: 0 }));
+    let result = fft(signal);
+    plotTimeDomain(samples);
+    plotFFT(result);
+}
+
+const scope = {
+    sin: Math.sin,
+    cos: Math.cos,
+    tan: Math.tan,
+    exp: Math.exp,
+    sqrt: Math.sqrt,
+    pi: Math.PI,
+    e: Math.E
+};
+
+
+function generateFromFormula (){
+    const formula = document.getElementById("formulaInput").value;
+    const f = new Function ("x", ...Object.keys(scope), "return " + formula);
+    const N = 64;
+    const samples = [];
+    //generea samples alltså dragbara punkter
+    for (let i = 0; i < N; i++) {
+        const x = i / N * 2 * Math.PI;
+        samples.push(f(x, ...Object.values(scope)));
+    }
+    
+    const signal = samples.map(v => ({ re: v, im: 0 }));
+
+    // kör FFT
+    const result = fft(signal);
+
+    plotTimeDomain(samples);
+    plotFFT(result);   // skapar grafen första gången
+    
+
 }
