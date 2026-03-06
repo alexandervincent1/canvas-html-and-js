@@ -1,53 +1,3 @@
-// const xValues = ["Italy", "France", "Spain", "USA", "Argentina"];
-// const yValues = [55, 49, 44, 24, 15];
-// const barColors = ["red", "green", "blue", "orange", "brown"];
-
-// const xVärden = ["Jan", "Feb", "Mar"]
-// const yVärden = [10, 20, 30]
-
-
-
-// function MyCanvas() {
-//     const myChart = new Chart("myCanvas", {
-//         type: "bar",
-//         data: {
-//             labels: xValues,
-//             datasets: [{
-//                 backgroundColor: barColors,
-//                 data: yValues
-//             }]
-//         },
-//         options: {
-
-//         }
-//     });
-// }
-
-
-
-
-
-// function computeFFT(samples) {
-//     const fft = new FFT(samples.length, 1024);
-//     fft.forward(samples);
-//     return Array.from(fft.spectrum);
-// }
-
-
-// function plotMagnitude (magnitudes){
-//     new Chart(document.getElementById("magChart"), {
-//         type:"line",
-//         data:{
-//             labels: magnitudes.map((_,i)=>i),
-//             datasets:[{
-//                 label: "|X(f)|",
-//                 data: magnitudes
-//             }]
-//         }
-//     })
-// }
-
-
 /**
  * Simple Recursive FFT (Cooley-Tukey)
  * For educational use. Assumes input length is a power of 2.
@@ -57,6 +7,8 @@
 let timeChart = null;
 let magChart = null;
 let fftChart = null;
+var x = false;
+var y = false;
 
 function generateSine(frequency, sampleRate, sampleCount) {
     const samples = [];
@@ -99,6 +51,9 @@ function fft(input) {
 
 
 function plotFFT(result) {
+    if (fftChart) fftChart.destroy();
+    fftChart = null;
+
     const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
 
     fftChart = new Chart(document.getElementById("magChart"), {
@@ -124,6 +79,7 @@ function updateFFT(result) {
 
 function plotTimeDomain(samples) {
     if (timeChart) timeChart.destroy();
+    timeChart = null;
 
     timeChart = new Chart(document.getElementById("timeChart"), {
         type: "line",
@@ -139,7 +95,8 @@ function plotTimeDomain(samples) {
             }]
         },
         options: {
-            animation: false
+            animation: false,
+            onHover: () => {}
         }
     });
 
@@ -151,10 +108,136 @@ function plotTimeDomain(samples) {
 
 function makeTimeChartInteractive() {
     const canvas = document.getElementById("timeChart");
+
+
     let activePoint = null;
     let isUpdating = false;
+    let selectionStart = null;
+    let selectionEnd = null;
+    let selectedPoints = [];
+    let isSelecting = false;
+    let isDraggingSelected = false;
+    let dragStartY = null;
+    let originalValues = [];
+
+    let handleX = null;
+    let handleY = null;
+
+    function drawSelectionRectangle() {
+        const ctx = canvas.getContext("2d");
+
+        // Rita om grafen
+        timeChart.draw();
+
+        // Rita rektangeln
+        const x = Math.min(selectionStart.x, selectionEnd.x);
+        const y = Math.min(selectionStart.y, selectionEnd.y);
+        const w = Math.abs(selectionEnd.x - selectionStart.x);
+        const h = Math.abs(selectionEnd.y - selectionStart.y);
+
+        ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
+        ctx.fillStyle = "rgba(0, 150, 255, 0.2)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        ctx.fillRect(x, y, w, h);
+    }
+
+    function drawSelectedHighlight() {
+        if (selectedPoints.length === 0) return;
+
+        const ctx = canvas.getContext("2d");
+        const meta = timeChart.getDatasetMeta(0);
+
+        // Hitta mittpunkt för handtag
+        let minX = Infinity, maxX = -Infinity, avgY = 0;
+        selectedPoints.forEach(i => {
+            const point = meta.data[i];
+            if (point.x < minX) minX = point.x;
+            if (point.x > maxX) maxX = point.x;
+            avgY += point.y;
+        });
+        avgY /= selectedPoints.length;
+
+        // Spara handtagets position
+        handleX = (minX + maxX) / 2;
+        handleY = avgY;
+
+        // Rita handtag (en ruta i mitten)
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+        ctx.fillRect(handleX - 10, handleY - 10, 20, 20);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(handleX - 10, handleY - 10, 20, 20);
+
+        // Rita pilar upp/ner
+        ctx.beginPath();
+        ctx.moveTo(handleX, handleY - 6);
+        ctx.lineTo(handleX - 4, handleY - 2);
+        ctx.lineTo(handleX + 4, handleY - 2);
+        ctx.closePath();
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(handleX, handleY + 6);
+        ctx.lineTo(handleX - 4, handleY + 2);
+        ctx.lineTo(handleX + 4, handleY + 2);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+
+    function getPointsInsideRectangle() {
+        const points = [];
+
+        const x1 = Math.min(selectionStart.x, selectionEnd.x);
+        const x2 = Math.max(selectionStart.x, selectionEnd.x);
+        const y1 = Math.min(selectionStart.y, selectionEnd.y);
+        const y2 = Math.max(selectionStart.y, selectionEnd.y);
+
+        const meta = timeChart.getDatasetMeta(0);
+
+        meta.data.forEach((point, index) => {
+            if (point.x >= x1 && point.x <= x2 && point.y >= y1 && point.y <= y2) {
+                points.push(index);
+            }
+        });
+
+        return points;
+    }
+
 
     canvas.addEventListener("mousedown", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Shift + klick = rektangel-select
+        if (event.shiftKey) {
+            selectionStart = { x: mouseX, y: mouseY };
+            selectionEnd = null;
+            isSelecting = true;
+            selectedPoints = [];
+            return;
+        }
+
+        // Kolla om vi klickar på handtaget
+        if (selectedPoints.length > 0 && handleX !== null) {
+            const dist = Math.sqrt((handleX - mouseX) ** 2 + (handleY - mouseY) ** 2);
+            if (dist < 15) {
+                isDraggingSelected = true;
+                dragStartY = mouseY;
+                originalValues = selectedPoints.map(idx => timeChart.data.datasets[0].data[idx]);
+                return;
+            }
+            // Klickade utanför handtaget - avmarkera
+            selectedPoints = [];
+            handleX = null;
+            handleY = null;
+            timeChart.draw();
+        }
+
+        // Single-point drag
         const points = timeChart.getElementsAtEventForMode(
             event,
             "nearest",
@@ -164,7 +247,42 @@ function makeTimeChartInteractive() {
         if (points.length) activePoint = points[0];
     });
 
+    // --- Mouse Move ---
     canvas.addEventListener("mousemove", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseY = event.clientY - rect.top;
+
+        // 1. Rectangle-select mode
+        if (isSelecting) {
+            selectionEnd = {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+            };
+            drawSelectionRectangle();
+            return;
+        }
+
+        // 2. Multi-drag mode - behåll relativ position
+        if (isDraggingSelected && selectedPoints.length > 0) {
+            const yScale = timeChart.scales.y;
+            const deltaValue = yScale.getValueForPixel(mouseY) - yScale.getValueForPixel(dragStartY);
+
+            selectedPoints.forEach((idx, j) => {
+                timeChart.data.datasets[0].data[idx] = originalValues[j] + deltaValue;
+            });
+
+            timeChart.update("none");
+            drawSelectedHighlight();
+
+            const samples = timeChart.data.datasets[0].data;
+            const signal = samples.map(v => ({ re: v, im: 0 }));
+            const result = fft(signal);
+            updateFFT(result);
+
+            return;
+        }
+
+        // 3. Single-point drag
         if (!activePoint) return;
         if (isUpdating) return;
 
@@ -177,14 +295,10 @@ function makeTimeChartInteractive() {
             }
 
             const yScale = timeChart.scales.y;
-            const rect = canvas.getBoundingClientRect();
-            const yPixel = event.clientY - rect.top;
-            const newValue = yScale.getValueForPixel(yPixel);
+            const newValue = yScale.getValueForPixel(mouseY);
 
             timeChart.data.datasets[0].data[activePoint.index] = newValue;
             timeChart.update("none");
-
-            // Uppdatera FFT
             const samples = timeChart.data.datasets[0].data;
             const signal = samples.map(v => ({ re: v, im: 0 }));
             const result = fft(signal);
@@ -194,8 +308,18 @@ function makeTimeChartInteractive() {
         });
     });
 
+
     canvas.addEventListener("mouseup", () => {
+        if (isSelecting && selectionEnd) {
+            selectedPoints = getPointsInsideRectangle();
+            console.log("Valda punkter:", selectedPoints.length);
+            timeChart.draw();
+            drawSelectedHighlight();
+        }
+        isSelecting = false;
+        isDraggingSelected = false;
         activePoint = null;
+        dragStartY = null;
     });
 }
 
@@ -209,7 +333,11 @@ function reset() {
 }
 
 function generateNewSine() {
-    let samples = generateSine(5, 64, 64);
+    let N = Number(document.getElementById("choosePoints").value);
+    if (N == 0) {
+        N = 64;
+    }
+    let samples = generateSine(5, N, N);
     let signal = samples.map(v => ({ re: v, im: 0 }));
     let result = fft(signal);
     plotTimeDomain(samples);
@@ -227,24 +355,24 @@ const scope = {
 };
 
 
-function generateFromFormula (){
+function generateFromFormula() {
     const formula = document.getElementById("formulaInput").value;
-    const f = new Function ("x", ...Object.keys(scope), "return " + formula);
-    const N = 64;
+    const f = new Function("x", ...Object.keys(scope), "return " + formula);
+
+    let N = Number(document.getElementById("choosePoints").value);
+    if (N == 0) {
+        N = 64;
+    }
     const samples = [];
-    //generea samples alltså dragbara punkter
+
     for (let i = 0; i < N; i++) {
         const x = i / N * 2 * Math.PI;
         samples.push(f(x, ...Object.values(scope)));
     }
-    
-    const signal = samples.map(v => ({ re: v, im: 0 }));
 
-    // kör FFT
+    const signal = samples.map(v => ({ re: v, im: 0 }));
     const result = fft(signal);
 
     plotTimeDomain(samples);
-    plotFFT(result);   // skapar grafen första gången
-    
-
+    plotFFT(result);
 }
