@@ -9,6 +9,9 @@ let magChart = null;
 let fftChart = null;
 var x = false;
 var y = false;
+var currentMode = 0;
+let showPhase = false;
+let currentResult = null;
 
 function generateSine(frequency, sampleRate, sampleCount) {
     const samples = [];
@@ -53,27 +56,62 @@ function fft(input) {
 function plotFFT(result) {
     if (fftChart) fftChart.destroy();
     fftChart = null;
+    
+    currentResult = result;
+    // Ta bort: showPhase = false;
 
-    const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+    let data;
+    let label;
+    let color;
+    
+    if (showPhase) {
+        data = result.map(c => Math.atan2(c.im, c.re));
+        label = "Phase (rad)";
+        color = "red";
+    } else {
+        data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+        label = "|X(f)|";
+        color = "red";
+    }
 
     fftChart = new Chart(document.getElementById("magChart"), {
         type: "line",
         data: {
-            labels: magnitudes.map((_, i) => i),
+            labels: data.map((_, i) => i),
             datasets: [{
-                label: "|X(f)|",
-                data: magnitudes,
-                borderColor: "red",
+                label: label,
+                data: data,
+                borderColor: color,
                 borderWidth: 1,
-                pointRadius: 0
+                pointRadius: 6,
+                pointHoverRadius: 8
             }]
         }
     });
 }
 
+
+
 function updateFFT(result) {
-    const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
-    fftChart.data.datasets[0].data = magnitudes;
+    currentResult = result;
+    
+    const n = result.length;
+    const half = Math.floor(n / 2);
+    
+    let data;
+    if (showPhase) {
+        data = result.map(c => Math.atan2(c.im, c.re));
+    } else {
+        data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+    }
+    
+    if (isShifted) {
+        const shifted = [...data.slice(half), ...data.slice(0, half)];
+        fftChart.data.datasets[0].data = shifted;
+    } else {
+        fftChart.data.datasets[0].data = data;
+    }
+    
     fftChart.update("none");
 }
 
@@ -91,7 +129,7 @@ function plotTimeDomain(samples) {
                 borderColor: "blue",
                 borderWidth: 1,
                 pointRadius: 6,   // gör punkterna klickbara
-                pointHoverRadius: 7
+                pointHoverRadius: 8
             }]
         },
         options: {
@@ -274,7 +312,7 @@ function makeTimeChartInteractive() {
             timeChart.update("none");
             drawSelectedHighlight();
 
-            const samples = timeChart.data.datasets[0].data;
+            const samples = timeChart.data.datasets[0].data.slice(0, -1);  // lägg till .slice(0, -1)
             const signal = samples.map(v => ({ re: v, im: 0 }));
             const result = fft(signal);
             updateFFT(result);
@@ -296,10 +334,16 @@ function makeTimeChartInteractive() {
 
             const yScale = timeChart.scales.y;
             const newValue = yScale.getValueForPixel(mouseY);
+            const data = timeChart.data.datasets[0].data;
 
-            timeChart.data.datasets[0].data[activePoint.index] = newValue;
+            data[activePoint.index] = newValue;
+            
+            // Synka loop-punkterna
+            if (activePoint.index === 0) data[data.length - 1] = newValue;
+            if (activePoint.index === data.length - 1) data[0] = newValue;
+
             timeChart.update("none");
-            const samples = timeChart.data.datasets[0].data;
+            const samples = data.slice(0, -1);
             const signal = samples.map(v => ({ re: v, im: 0 }));
             const result = fft(signal);
             updateFFT(result);
@@ -337,12 +381,15 @@ function generateNewSine() {
     if (N == 0) {
         N = 64;
     }
-    let samples = generateSine(5, N, N);
-    let signal = samples.map(v => ({ re: v, im: 0 }));
+    N = Math.pow(2, Math.round(Math.log2(N)));
+    
+    let samples = generateSine(5, N, N + 1);  // N + 1 punkter
+    let signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));  // FFT får N punkter
     let result = fft(signal);
     plotTimeDomain(samples);
     plotFFT(result);
 }
+
 
 const scope = {
     sin: Math.sin,
@@ -351,7 +398,9 @@ const scope = {
     exp: Math.exp,
     sqrt: Math.sqrt,
     pi: Math.PI,
-    e: Math.E
+    e: Math.E,
+    sawtooth: (x) => 2 * (x / (2 * Math.PI) - Math.floor(0.5 + x / (2 * Math.PI))),
+    square: (x) => Math.sin(x) >= 0 ? 1 : -1
 };
 
 
@@ -363,16 +412,98 @@ function generateFromFormula() {
     if (N == 0) {
         N = 64;
     }
+    N = Math.pow(2, Math.round(Math.log2(N)));
+    
     const samples = [];
 
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i <= N; i++) {  
         const x = i / N * 2 * Math.PI;
         samples.push(f(x, ...Object.values(scope)));
     }
 
-    const signal = samples.map(v => ({ re: v, im: 0 }));
+    const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));  // FFT får N punkter
     const result = fft(signal);
 
     plotTimeDomain(samples);
     plotFFT(result);
+}
+
+
+let isShifted = false;
+
+function flipHalf() {
+    const data = fftChart.data.datasets[0].data;
+    const n = data.length;
+    const half = Math.floor(n / 2);
+    
+    if (!isShifted) {
+        // Shift: flytta högra halvan till vänster (negativa frekvenser)
+        const shifted = [...data.slice(half), ...data.slice(0, half)];
+        const labels = [];
+        for (let i = -half; i < half; i++) labels.push(i);
+        
+        fftChart.data.datasets[0].data = shifted;
+        fftChart.data.labels = labels;
+    } else {
+        // Unshift: flytta tillbaka
+        const unshifted = [...data.slice(half), ...data.slice(0, half)];
+        const labels = [];
+        for (let i = 0; i < n; i++) labels.push(i);
+        
+        fftChart.data.datasets[0].data = unshifted;
+        fftChart.data.labels = labels;
+    }
+    
+    isShifted = !isShifted;
+    fftChart.update("none");
+}
+
+async function loadWavFile() {
+    const fileInput = document.getElementById("wavFile");
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    const rawSamples = audioBuffer.getChannelData(0);
+    
+    let N = Number(document.getElementById("choosePoints").value);
+    if (N == 0) {
+        N = 64;
+    }
+    N = Math.pow(2, Math.round(Math.log2(N)));
+    N = Math.min(N, rawSamples.length);
+    
+    const samples = [];
+    for (let i = 0; i <= N; i++) {
+        samples.push(rawSamples[i % N]);
+    }
+
+    const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
+    const result = fft(signal);
+    
+    plotTimeDomain(samples);
+    plotFFT(result);
+}
+
+function togglePhase() {
+    if (!currentResult) return;
+    
+    showPhase = !showPhase;
+    
+    if (showPhase) {
+        const phase = currentResult.map(c => Math.atan2(c.im, c.re));
+        fftChart.data.datasets[0].data = phase;
+        fftChart.data.datasets[0].label = "Phase (rad)";
+        fftChart.data.datasets[0].borderColor = "red";
+    } else {
+        const magnitudes = currentResult.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+        fftChart.data.datasets[0].data = magnitudes;
+        fftChart.data.datasets[0].label = "|X(f)|";
+        fftChart.data.datasets[0].borderColor = "red";
+    }
+    
+    fftChart.update("none");
 }

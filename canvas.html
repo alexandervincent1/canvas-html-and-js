@@ -12,52 +12,60 @@
 
     <canvas id="timeChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
     <canvas id="magChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
-    <!-- <button onclick="generateNewSine(); y = true; x = false">Generate sine</button> -->
+
     <button onclick="reset()">Reset</button>
-    <!-- <input id="formulaInput" placeholder="sin(5*x) + cos(2*x)">
-    <button onclick="generateFromFormula(); x = true; y = false">Generate formula</button> -->
-    <input id="choosePoints" placeholder="choose how many points you want to see eg 64">
-    <button onclick="
-        if (x === true){
-            generateFromFormula();
-        }
-        if (y === true){
-            generateNewSine();
-        }
-    ">Generate points</button>
+
     <select id="mode">
         <option value="sine">Generate sine</option>
         <option value="formula">Generate formula</option>
+        <option value="wav">Load WAV file</option>
     </select>
+
     <input id="formulaInput" placeholder="sin(5*x)" style="display:none">
+    <input type="file" id="wavFile" accept=".wav" style="display:none">
     <button onclick="generate()">Generate</button>
+
+    <input id="choosePoints" placeholder="64" value="64">
+    <button onclick="
+        if (currentMode === 1) generateNewSine();
+        if (currentMode === 2) generateFromFormula();
+        if (currentMode === 3) loadWavFile();
+    ">Generate points</button>
+
+    
+    
+    <button onclick="flipHalf()">Flip Half</button>
+    <button onclick="togglePhase()">Toggle Phase</button>
+
     <script src="chart.js"></script>
     <script>
         function generate() {
             const mode = document.getElementById("mode").value;
 
             if (mode === "sine") {
-                y = true;
-                x = false
+                currentMode = 1;
                 generateNewSine();
             }
 
             if (mode === "formula") {
-                const formula = document.getElementById("formulaInput").value;
-                x = true;
-                y = false
+                currentMode = 2;
                 generateFromFormula();
+            }
+
+            if (mode === "wav") {
+                currentMode = 3;
+                loadWavFile();
             }
         }
 
         document.getElementById("mode").addEventListener("change", function () {
             document.getElementById("formulaInput").style.display =
                 this.value === "formula" ? "inline-block" : "none";
+            document.getElementById("wavFile").style.display =
+                this.value === "wav" ? "inline-block" : "none";
         });
     </script>
 
-
-    
 </body>
 
 </html>
