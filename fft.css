@@ -1,0 +1,93 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #1a1a1a;
+    color: #fff;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    color: #ff4444;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+canvas {
+    background: #2a2a2a;
+    border: 2px solid #ff4444 !important;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+#waveCount {
+    color: #ff4444;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 10px 0;
+}
+
+select, input[type="text"], input[type="file"], input {
+    background: #333;
+    color: #fff;
+    border: 2px solid #ff4444;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 1rem;
+    margin: 5px;
+}
+
+select:focus, input:focus {
+    outline: none;
+    border-color: #ff6666;
+}
+
+button {
+    background: #ff4444;
+    color: #fff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin: 5px;
+    min-width: 150px;
+}
+
+button:hover {
+    background: #ff6666;
+}
+
+.top-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.graphs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.bottom-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}

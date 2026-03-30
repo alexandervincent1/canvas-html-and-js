@@ -9,17 +9,17 @@ To add:
 
 <!-- options eg, input from user, wav? keyboard? picture? -->
 
-another graph for amplitude or magnitude? (dont quite remember what it was called)
+<!-- another graph for amplitude or magnitude? (dont quite remember what it was called) -->
 
-frontend, a clean looking dashboard thats not to confusing (maybe in japanese?)
+<!-- frontend, a clean looking dashboard thats not to confusing (maybe in japanese?) -->
 
 nyqvist formula?
 
-maybe theres another graph, calculation that could be displayed to be able to explain it better?
+<!-- maybe theres another graph, calculation that could be displayed to be able to explain it better? -->
 
-Some text for explanation?(maybe stupid)
 
-import by file wav file.
+
+<!-- import by file wav file. -->
 
 <!-- The ability to select multiple points at once area of selection (rectangle tool) -->
 
@@ -31,9 +31,9 @@ import by file wav file.
 
 <!-- instead of a bunch of buttons add a multiple choice field -->
 
-show how many waves de graph has inspo leonwurr.com
+<!-- show how many waves de graph has inspo leonwurr.com -->
 
-adjust the freq of the signal
+adjust the freq of the signal only selectable from choosen methods
 <!-- add points for the spikes on the fft graph -->
 
 bug fixing:

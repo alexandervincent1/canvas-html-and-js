@@ -65,13 +65,16 @@ function plotFFT(result) {
     let color;
     
     if (showPhase) {
-        data = result.map(c => Math.atan2(c.im, c.re));
+        // Gauthier: START
+        data = result.map(c => (Math.hypot(c.re, c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
+        // Gauthier: END
+        // data = result.map(c => Math.atan2(c.im, c.re));
         label = "Phase (rad)";
-        color = "red";
+        color = "white";
     } else {
         data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
         label = "|X(f)|";
-        color = "red";
+        color = "white";
     }
 
     fftChart = new Chart(document.getElementById("magChart"), {
@@ -100,7 +103,10 @@ function updateFFT(result) {
     
     let data;
     if (showPhase) {
-        data = result.map(c => Math.atan2(c.im, c.re));
+        // Gauthier: START
+        data = result.map(c => (Math.hypot(c.re, c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
+        // Gauthier: END
+        // data = result.map(c => Math.atan2(c.im, c.re));
     } else {
         data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
     }
@@ -126,7 +132,7 @@ function plotTimeDomain(samples) {
             datasets: [{
                 label: "x(t)",
                 data: samples,
-                borderColor: "blue",
+                borderColor: "white",
                 borderWidth: 1,
                 pointRadius: 6,   // gör punkterna klickbara
                 pointHoverRadius: 8
@@ -369,11 +375,19 @@ function makeTimeChartInteractive() {
 
 
 function reset() {
-    timeChart.destroy();
-    fftChart.destroy();
-    fftChart = null;
-    timeChart = null;
-
+    if (timeChart) {
+        timeChart.destroy();
+        timeChart = null;
+    }
+    if (fftChart) {
+        fftChart.destroy();
+        fftChart = null;
+    }
+    currentResult = null;
+    showPhase = false;
+    isShifted = false;
+    selectedPoints = [];
+    document.getElementById("waveCount").textContent = "Waves: 0";
 }
 
 function generateNewSine() {
@@ -383,11 +397,12 @@ function generateNewSine() {
     }
     N = Math.pow(2, Math.round(Math.log2(N)));
     
-    let samples = generateSine(5, N, N + 1);  // N + 1 punkter
-    let signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));  // FFT får N punkter
+    let samples = generateSine(5, N, N + 1);
+    let signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
     let result = fft(signal);
     plotTimeDomain(samples);
     plotFFT(result);
+    countWaves(result);
 }
 
 
@@ -421,11 +436,12 @@ function generateFromFormula() {
         samples.push(f(x, ...Object.values(scope)));
     }
 
-    const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));  // FFT får N punkter
+    const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
     const result = fft(signal);
 
     plotTimeDomain(samples);
     plotFFT(result);
+    countWaves(result);
 }
 
 
@@ -486,6 +502,7 @@ async function loadWavFile() {
     
     plotTimeDomain(samples);
     plotFFT(result);
+    countWaves(result);
 }
 
 function togglePhase() {
@@ -494,16 +511,33 @@ function togglePhase() {
     showPhase = !showPhase;
     
     if (showPhase) {
-        const phase = currentResult.map(c => Math.atan2(c.im, c.re));
+        // Gauthier: START
+        const phase = currentResult.map(c => (Math.hypot(c.re,c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
+        // Gauthier: END
+        // const phase = currentResult.map(c => Math.atan2(c.im, c.re));
         fftChart.data.datasets[0].data = phase;
         fftChart.data.datasets[0].label = "Phase (rad)";
-        fftChart.data.datasets[0].borderColor = "red";
+        fftChart.data.datasets[0].borderColor = "white";
     } else {
         const magnitudes = currentResult.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
         fftChart.data.datasets[0].data = magnitudes;
         fftChart.data.datasets[0].label = "|X(f)|";
-        fftChart.data.datasets[0].borderColor = "red";
+        fftChart.data.datasets[0].borderColor = "white";
     }
     
     fftChart.update("none");
+}
+
+function countWaves(result) {
+    const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
+    
+    // Hitta index med högsta magnitud (skippa index 0 som är DC)
+    let maxIndex = 1;
+    for (let i = 2; i < magnitudes.length / 2; i++) {
+        if (magnitudes[i] > magnitudes[maxIndex]) {
+            maxIndex = i;
+        }
+    }
+    
+    document.getElementById("waveCount").textContent = "Waves: " + maxIndex;
 }

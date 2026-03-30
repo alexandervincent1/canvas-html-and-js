@@ -5,37 +5,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>D</title>
+    <link rel="stylesheet" href="fft.css">
 </head>
 
 <body>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
 
-    <canvas id="timeChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
-    <canvas id="magChart" width="1000" height="300" style="border:1px solid #000000;"></canvas>
+    <div class="top-controls">
+        <select id="mode">
+            <option value="sine">Generate sine</option>
+            <option value="formula">Generate formula</option>
+            <option value="wav">Load WAV file</option>
+        </select>
 
-    <button onclick="reset()">Reset</button>
+        <input id="formulaInput" placeholder="sin(5*x)" style="display:none">
+        <input type="file" id="wavFile" accept=".wav" style="display:none">
+        <button onclick="generate()">Generate</button>
 
-    <select id="mode">
-        <option value="sine">Generate sine</option>
-        <option value="formula">Generate formula</option>
-        <option value="wav">Load WAV file</option>
-    </select>
+        <input id="choosePoints" placeholder="64" value="64">
+        <button onclick="
+            if (currentMode === 1) generateNewSine();
+            if (currentMode === 2) generateFromFormula();
+            if (currentMode === 3) loadWavFile();
+        ">Generate points</button>
+        
+        <button onclick="reset()">Reset</button>
+    </div>
 
-    <input id="formulaInput" placeholder="sin(5*x)" style="display:none">
-    <input type="file" id="wavFile" accept=".wav" style="display:none">
-    <button onclick="generate()">Generate</button>
+    <div class="graphs">
+        <canvas id="timeChart" width="1000" height="300"></canvas>
+        <p id="waveCount">Waves: 0</p>
+        <canvas id="magChart" width="1000" height="300"></canvas>
+    </div>
 
-    <input id="choosePoints" placeholder="64" value="64">
-    <button onclick="
-        if (currentMode === 1) generateNewSine();
-        if (currentMode === 2) generateFromFormula();
-        if (currentMode === 3) loadWavFile();
-    ">Generate points</button>
-
-    
-    
-    <button onclick="flipHalf()">Flip Half</button>
-    <button onclick="togglePhase()">Toggle Phase</button>
+    <div class="bottom-controls">
+        <button onclick="flipHalf()">Flip Half</button>
+        <button onclick="togglePhase()">Toggle Phase</button>
+    </div>
 
     <script src="chart.js"></script>
     <script>
