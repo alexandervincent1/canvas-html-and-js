@@ -4,44 +4,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D</title>
+    <title>FFT Visualizer</title>
     <link rel="stylesheet" href="fft.css">
 </head>
 
 <body>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0"></script>
 
-    <div class="top-controls">
-        <select id="mode">
-            <option value="sine">Generate sine</option>
-            <option value="formula">Generate formula</option>
-            <option value="wav">Load WAV file</option>
-        </select>
+    <header>
+        <div class="controls-left">
+            <select id="mode">
+                <option value="sine">Sine Wave</option>
+                <option value="formula">Formula</option>
+                <option value="wav">WAV File</option>
+            </select>
+            <input id="formulaInput" type="text" placeholder="sin(5*x)" style="display:none">
+            <input type="file" id="wavFile" accept=".wav" style="display:none">
+            <button onclick="generate()">Generate</button>
+            <button class="secondary" onclick="reset()">Reset</button>
+        </div>
+        <div class="controls-right">
+            <input id="choosePoints" type="number" placeholder="points" oninput="this.style.width = this.value.length * 5 + 60 + 'px'" >
+            <button onclick="
+                if (currentMode === 1) generateNewSine();
+                if (currentMode === 2) generateFromFormula();
+                if (currentMode === 3) loadWavFile();
+            ">Update</button>
+            
+            <button id="switchDWT" onclick="toggleTransform()">Switch to DWT</button>
+        </div>
+    </header>
 
-        <input id="formulaInput" placeholder="sin(5*x)" style="display:none">
-        <input type="file" id="wavFile" accept=".wav" style="display:none">
-        <button onclick="generate()">Generate</button>
+    <main>
+        <div class="graph-section">
+            <div class="graph-label">Time Domain</div>
+            <canvas id="timeChart" width="1000" height="280"></canvas>
+            <p id="waveCount">Waves: 0</p>
+        </div>
+        <div class="graph-section">
+            <div class="graph-label">Frequency Domain</div>
+            <canvas id="magChart" width="1000" height="280"></canvas>
+        </div>
+    </main>
 
-        <input id="choosePoints" placeholder="64" value="64">
-        <button onclick="
-            if (currentMode === 1) generateNewSine();
-            if (currentMode === 2) generateFromFormula();
-            if (currentMode === 3) loadWavFile();
-        ">Generate points</button>
+    <footer>
+        <button id="flipHalfBtn" class="secondary" onclick="flipHalf()">Flip Half</button>
+        <button id="togglePhaseBtn" class="secondary" onclick="togglePhase()">Toggle Phase</button>
         
-        <button onclick="reset()">Reset</button>
-    </div>
-
-    <div class="graphs">
-        <canvas id="timeChart" width="1000" height="300"></canvas>
-        <p id="waveCount">Waves: 0</p>
-        <canvas id="magChart" width="1000" height="300"></canvas>
-    </div>
-
-    <div class="bottom-controls">
-        <button onclick="flipHalf()">Flip Half</button>
-        <button onclick="togglePhase()">Toggle Phase</button>
-    </div>
+    </footer>
 
     <script src="chart.js"></script>
     <script>

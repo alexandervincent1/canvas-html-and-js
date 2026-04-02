@@ -12,6 +12,8 @@ var y = false;
 var currentMode = 0;
 let showPhase = false;
 let currentResult = null;
+let isShifted = false;
+let useDWT = false;
 
 function generateSine(frequency, sampleRate, sampleCount) {
     const samples = [];
@@ -56,25 +58,25 @@ function fft(input) {
 function plotFFT(result) {
     if (fftChart) fftChart.destroy();
     fftChart = null;
-    
+
     currentResult = result;
     // Ta bort: showPhase = false;
 
     let data;
     let label;
     let color;
-    
+
     if (showPhase) {
         // Gauthier: START
         data = result.map(c => (Math.hypot(c.re, c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
         // Gauthier: END
         // data = result.map(c => Math.atan2(c.im, c.re));
         label = "Phase (rad)";
-        color = "white";
+        color = "green";
     } else {
         data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
         label = "|X(f)|";
-        color = "white";
+        color = "green";
     }
 
     fftChart = new Chart(document.getElementById("magChart"), {
@@ -89,6 +91,7 @@ function plotFFT(result) {
                 pointRadius: 6,
                 pointHoverRadius: 8
             }]
+
         }
     });
 }
@@ -97,10 +100,10 @@ function plotFFT(result) {
 
 function updateFFT(result) {
     currentResult = result;
-    
+
     const n = result.length;
     const half = Math.floor(n / 2);
-    
+
     let data;
     if (showPhase) {
         // Gauthier: START
@@ -110,14 +113,14 @@ function updateFFT(result) {
     } else {
         data = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
     }
-    
+
     if (isShifted) {
         const shifted = [...data.slice(half), ...data.slice(0, half)];
         fftChart.data.datasets[0].data = shifted;
     } else {
         fftChart.data.datasets[0].data = data;
     }
-    
+
     fftChart.update("none");
 }
 
@@ -132,7 +135,7 @@ function plotTimeDomain(samples) {
             datasets: [{
                 label: "x(t)",
                 data: samples,
-                borderColor: "white",
+                borderColor: "blue",
                 borderWidth: 1,
                 pointRadius: 6,   // gör punkterna klickbara
                 pointHoverRadius: 8
@@ -140,7 +143,8 @@ function plotTimeDomain(samples) {
         },
         options: {
             animation: false,
-            onHover: () => {}
+
+            onHover: () => { }
         }
     });
 
@@ -281,7 +285,7 @@ function makeTimeChartInteractive() {
             timeChart.draw();
         }
 
-        // Single-point drag
+        // Single-point drag    
         const points = timeChart.getElementsAtEventForMode(
             event,
             "nearest",
@@ -343,7 +347,7 @@ function makeTimeChartInteractive() {
             const data = timeChart.data.datasets[0].data;
 
             data[activePoint.index] = newValue;
-            
+
             // Synka loop-punkterna
             if (activePoint.index === 0) data[data.length - 1] = newValue;
             if (activePoint.index === data.length - 1) data[0] = newValue;
@@ -392,14 +396,16 @@ function reset() {
 
 function generateNewSine() {
     let N = Number(document.getElementById("choosePoints").value);
-    if (N == 0) {
-        N = 64;
-    }
+    if (N == 0) N = 64;
     N = Math.pow(2, Math.round(Math.log2(N)));
-    
+
     let samples = generateSine(5, N, N + 1);
-    let signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
-    let result = fft(signal);
+    let signal = samples.slice(0, -1);
+    
+    let result = useDWT 
+        ? discreteHaarWaveletTransform(signal).map(v => ({ re: v, im: 0 }))
+        : fft(signal.map(v => ({ re: v, im: 0 })));
+    
     plotTimeDomain(samples);
     plotFFT(result);
     countWaves(result);
@@ -428,36 +434,35 @@ function generateFromFormula() {
         N = 64;
     }
     N = Math.pow(2, Math.round(Math.log2(N)));
-    
+
     const samples = [];
 
-    for (let i = 0; i <= N; i++) {  
+    for (let i = 0; i <= N; i++) {
         const x = i / N * 2 * Math.PI;
         samples.push(f(x, ...Object.values(scope)));
     }
 
     const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
-    const result = fft(signal);
+       const result = useDWT 
+        ? discreteHaarWaveletTransform(signal.map(c => c.re)).map(v => ({ re: v, im: 0 }))
+        : fft(signal);
 
     plotTimeDomain(samples);
     plotFFT(result);
     countWaves(result);
 }
 
-
-let isShifted = false;
-
 function flipHalf() {
     const data = fftChart.data.datasets[0].data;
     const n = data.length;
     const half = Math.floor(n / 2);
-    
+
     if (!isShifted) {
         // Shift: flytta högra halvan till vänster (negativa frekvenser)
         const shifted = [...data.slice(half), ...data.slice(0, half)];
         const labels = [];
         for (let i = -half; i < half; i++) labels.push(i);
-        
+
         fftChart.data.datasets[0].data = shifted;
         fftChart.data.labels = labels;
     } else {
@@ -465,11 +470,11 @@ function flipHalf() {
         const unshifted = [...data.slice(half), ...data.slice(0, half)];
         const labels = [];
         for (let i = 0; i < n; i++) labels.push(i);
-        
+
         fftChart.data.datasets[0].data = unshifted;
         fftChart.data.labels = labels;
     }
-    
+
     isShifted = !isShifted;
     fftChart.update("none");
 }
@@ -482,55 +487,62 @@ async function loadWavFile() {
     const arrayBuffer = await file.arrayBuffer();
     const audioContext = new AudioContext();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    
+
     const rawSamples = audioBuffer.getChannelData(0);
-    
+
     let N = Number(document.getElementById("choosePoints").value);
     if (N == 0) {
         N = 64;
     }
     N = Math.pow(2, Math.round(Math.log2(N)));
     N = Math.min(N, rawSamples.length);
-    
+
     const samples = [];
     for (let i = 0; i <= N; i++) {
         samples.push(rawSamples[i % N]);
     }
 
     const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
-    const result = fft(signal);
-    
+        const result = useDWT 
+        ? discreteHaarWaveletTransform(signal.map(c => c.re)).map(v => ({ re: v, im: 0 }))
+        : fft(signal);
+
     plotTimeDomain(samples);
     plotFFT(result);
     countWaves(result);
 }
-
 function togglePhase() {
     if (!currentResult) return;
-    
+
     showPhase = !showPhase;
-    
+
+    const n = currentResult.length;
+    const half = Math.floor(n / 2);
+
+    let data;
     if (showPhase) {
         // Gauthier: START
-        const phase = currentResult.map(c => (Math.hypot(c.re,c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
+        data = currentResult.map(c => (Math.hypot(c.re, c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
         // Gauthier: END
-        // const phase = currentResult.map(c => Math.atan2(c.im, c.re));
-        fftChart.data.datasets[0].data = phase;
         fftChart.data.datasets[0].label = "Phase (rad)";
-        fftChart.data.datasets[0].borderColor = "white";
+        fftChart.data.datasets[0].borderColor = "green";
     } else {
-        const magnitudes = currentResult.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
-        fftChart.data.datasets[0].data = magnitudes;
+        data = currentResult.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
         fftChart.data.datasets[0].label = "|X(f)|";
-        fftChart.data.datasets[0].borderColor = "white";
+        fftChart.data.datasets[0].borderColor = "green";
     }
-    
+
+    if (isShifted) {
+        data = [...data.slice(half), ...data.slice(0, half)];
+    }
+
+    fftChart.data.datasets[0].data = data;
     fftChart.update("none");
 }
 
 function countWaves(result) {
     const magnitudes = result.map(c => Math.sqrt(c.re * c.re + c.im * c.im));
-    
+
     // Hitta index med högsta magnitud (skippa index 0 som är DC)
     let maxIndex = 1;
     for (let i = 2; i < magnitudes.length / 2; i++) {
@@ -538,6 +550,48 @@ function countWaves(result) {
             maxIndex = i;
         }
     }
-    
+
     document.getElementById("waveCount").textContent = "Waves: " + maxIndex;
+}
+
+
+function discreteHaarWaveletTransform(input) {
+    // This function assumes that input.length=2^n, n>1
+    const output = new Array(input.length);
+
+    for (let length = input.length / 2; ; length = length / 2) {
+        // length is the current length of the working area of the output array.
+        // length starts at half of the array size and every iteration is halved until it is 1.
+        for (let i = 0; i < length; ++i) {
+            const sum = input[i * 2] + input[i * 2 + 1];
+            const difference = input[i * 2] - input[i * 2 + 1];
+            output[i] = sum;
+            output[length + i] = difference;
+        }
+        if (length == 1) {
+            return output;
+        }
+
+        // Swap arrays to do next iteration
+        for (let i = 0; i < length; i++) {
+            input[i] = output[i];
+        }
+    }
+}
+
+
+function toggleTransform() {
+    useDWT = !useDWT;
+    
+    // Göm/visa Flip Half och Toggle Phase
+    document.getElementById("flipHalfBtn").style.display = useDWT ? "none" : "block";
+    document.getElementById("togglePhaseBtn").style.display = useDWT ? "none" : "block";
+    
+    // Byt knapptext
+    const btn = document.getElementById("switchDWT");
+    btn.textContent = useDWT ? "Switch to FFT" : " Switch to DWT";
+    
+    if (currentMode === 1) generateNewSine();
+    if (currentMode === 2) generateFromFormula();
+    if (currentMode === 3) loadWavFile();
 }
