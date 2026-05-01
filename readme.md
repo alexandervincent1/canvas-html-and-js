@@ -22,24 +22,31 @@ nyqvist formula?
 
 adjust the freq of the signal only selectable from choosen methods
 
-display the levels
+<!-- display the levels -->
 
-En slider: “Levels: 1–6”
+<!-- En slider: “Levels: 1–6”
 Ett input‑fält: “Enter levels”
 En label som visar max levels baserat på N
 t.ex. N=64 → max 6 levels 
 När användaren ändrar slider → uppdatera grafen
 Du kan färgkoda varje level
 Du kan lägga dem i separata sektioner
-Du kan låta användaren expandera/collapsa levels
+Du kan låta användaren expandera/collapsa levels -->
 zoom function on the second graph?
-multiple graphs to display differnet levels? or just colors per level?
+
 
 switch the graphs
-dwt only display the first level and then transform it
+<!-- dwt only display the first level and then transform it -->
+visa upp den faktiskt riktiga fft iom att vi för nurvarande använder sample visa amplituden och typ visa upp formeln
+
+
 bug fixing:
 
-the dwt graph changes to dft when updating the points in the first graph
+
+<!-- footer hiding the numbers
+the dwt graph changes to dft when updating the points in the first graph -->
 <!-- match the graph perfectly (look at the end of it) -->
 <!-- the dragable bar disappears when a point shows up. -->
+
+När man byter så uppdaterar den grafen dsv man kan inte se det man ändrat med drag point
 

@@ -24,13 +24,14 @@
             <button class="secondary" onclick="reset()">Reset</button>
         </div>
         <div class="controls-right">
-            <input id="choosePoints" type="number" placeholder="points" oninput="this.style.width = this.value.length * 5 + 60 + 'px'" >
+            <input id="choosePoints" type="number" placeholder="points"
+                oninput="this.style.width = this.value.length * 5 + 60 + 'px'">
             <button onclick="
                 if (currentMode === 1) generateNewSine();
                 if (currentMode === 2) generateFromFormula();
                 if (currentMode === 3) loadWavFile();
             ">Update</button>
-            
+
             <button id="switchDWT" onclick="toggleTransform()">Switch to DWT</button>
         </div>
     </header>
@@ -50,7 +51,29 @@
     <footer>
         <button id="flipHalfBtn" class="secondary" onclick="flipHalf()">Flip Half</button>
         <button id="togglePhaseBtn" class="secondary" onclick="togglePhase()">Toggle Phase</button>
-        
+        <div id="levelControlContainer" class="level-control" style="display: none;">
+    <label for="levelInput">Level:</label>
+
+    <input 
+        id="levelInput" 
+        type="number" 
+        min="1" 
+        max="20" 
+        value="1"
+        step="1"
+        style="width: 60px; text-align:center;"
+    >
+
+    <input 
+        id="levelSlider" 
+        type="range" 
+        min="1" 
+        max="20" 
+        value="1" 
+        step="1"
+        style="width: 250px;"
+    >
+</div>
     </footer>
 
     <script src="chart.js"></script>

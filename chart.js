@@ -57,20 +57,19 @@ function fft(input) {
 
 function plotFFT(result) {
     if (fftChart) fftChart.destroy();
-    fftChart = null;
 
     currentResult = result;
-    // Ta bort: showPhase = false;
 
     let data;
     let label;
     let color;
 
     if (showPhase) {
-        // Gauthier: START
-        data = result.map(c => (Math.hypot(c.re, c.im) > 1e-9) ? Math.atan2(c.im, c.re) : 0.0);
-        // Gauthier: END
-        // data = result.map(c => Math.atan2(c.im, c.re));
+        data = result.map(c =>
+            (Math.hypot(c.re, c.im) > 1e-9)
+                ? Math.atan2(c.im, c.re)
+                : 0.0
+        );
         label = "Phase (rad)";
         color = "green";
     } else {
@@ -78,6 +77,20 @@ function plotFFT(result) {
         label = "|X(f)|";
         color = "green";
     }
+
+    const N = data.length;
+    // Beräknas helt dynamiskt utifrån storleken (t.ex. 64, 128, 256)
+    const boundaries = useDWT ? getLevelBoundaries(N) : [];
+
+    // Skapa pluginen lokalt för just denna graf-instans istället för Chart.register()
+    const verticalGridlinesPlugin = {
+        id: 'verticalGridlines',
+        afterDatasetsDraw(chart) {
+            if (useDWT) {
+                drawLevelLines(chart, boundaries);
+            }
+        }
+    };
 
     fftChart = new Chart(document.getElementById("magChart"), {
         type: "line",
@@ -91,12 +104,13 @@ function plotFFT(result) {
                 pointRadius: 6,
                 pointHoverRadius: 8
             }]
-
-        }
+        },
+        options: {
+            animation: false
+        },
+        plugins: [verticalGridlinesPlugin] // Använder de uppdaterade gränserna varje gång
     });
 }
-
-
 
 function updateFFT(result) {
     currentResult = result;
@@ -128,6 +142,16 @@ function plotTimeDomain(samples) {
     if (timeChart) timeChart.destroy();
     timeChart = null;
 
+    // Skapa en plugin som garanterar att våra rektanglar och handtag ritas SIST
+    const customDrawPlugin = {
+        id: 'customDraw',
+        afterDraw(chart) {
+            if (chart.customDrawFunction) {
+                chart.customDrawFunction();
+            }
+        }
+    };
+
     timeChart = new Chart(document.getElementById("timeChart"), {
         type: "line",
         data: {
@@ -137,26 +161,22 @@ function plotTimeDomain(samples) {
                 data: samples,
                 borderColor: "blue",
                 borderWidth: 1,
-                pointRadius: 6,   // gör punkterna klickbara
+                pointRadius: 6,
                 pointHoverRadius: 8
             }]
         },
         options: {
             animation: false,
-
             onHover: () => { }
-        }
+        },
+        plugins: [customDrawPlugin] // Laddar pluginen lokalt
     });
 
     makeTimeChartInteractive();
 }
 
-
-
-
 function makeTimeChartInteractive() {
     const canvas = document.getElementById("timeChart");
-
 
     let activePoint = null;
     let isUpdating = false;
@@ -173,11 +193,8 @@ function makeTimeChartInteractive() {
 
     function drawSelectionRectangle() {
         const ctx = canvas.getContext("2d");
+        // Obs: Inget timeChart.draw() här inne längre för att undvika infinite loops!
 
-        // Rita om grafen
-        timeChart.draw();
-
-        // Rita rektangeln
         const x = Math.min(selectionStart.x, selectionEnd.x);
         const y = Math.min(selectionStart.y, selectionEnd.y);
         const w = Math.abs(selectionEnd.x - selectionStart.x);
@@ -196,7 +213,6 @@ function makeTimeChartInteractive() {
         const ctx = canvas.getContext("2d");
         const meta = timeChart.getDatasetMeta(0);
 
-        // Hitta mittpunkt för handtag
         let minX = Infinity, maxX = -Infinity, avgY = 0;
         selectedPoints.forEach(i => {
             const point = meta.data[i];
@@ -206,18 +222,15 @@ function makeTimeChartInteractive() {
         });
         avgY /= selectedPoints.length;
 
-        // Spara handtagets position
         handleX = (minX + maxX) / 2;
         handleY = avgY;
 
-        // Rita handtag (en ruta i mitten)
         ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
         ctx.fillRect(handleX - 10, handleY - 10, 20, 20);
         ctx.strokeStyle = "white";
         ctx.lineWidth = 5;
         ctx.strokeRect(handleX - 10, handleY - 10, 20, 20);
 
-        // Rita pilar upp/ner
         ctx.beginPath();
         ctx.moveTo(handleX, handleY - 6);
         ctx.lineTo(handleX - 4, handleY - 2);
@@ -234,6 +247,11 @@ function makeTimeChartInteractive() {
         ctx.fill();
     }
 
+    // Koppla våra rit-funktioner till timeChart så pluginen kan utlösa dem automatiskt
+    timeChart.customDrawFunction = () => {
+        if (isSelecting && selectionStart && selectionEnd) drawSelectionRectangle();
+        if (selectedPoints.length > 0) drawSelectedHighlight();
+    };
 
     function getPointsInsideRectangle() {
         const points = [];
@@ -253,7 +271,6 @@ function makeTimeChartInteractive() {
 
         return points;
     }
-
 
     canvas.addEventListener("mousedown", (event) => {
         const rect = canvas.getBoundingClientRect();
@@ -282,7 +299,7 @@ function makeTimeChartInteractive() {
             selectedPoints = [];
             handleX = null;
             handleY = null;
-            timeChart.draw();
+            timeChart.update("none"); // Ändrad till .update()
         }
 
         // Single-point drag    
@@ -306,7 +323,7 @@ function makeTimeChartInteractive() {
                 x: event.clientX - rect.left,
                 y: event.clientY - rect.top
             };
-            drawSelectionRectangle();
+            timeChart.update("none"); // Utlöser redraw -> plugin ritar ut formen
             return;
         }
 
@@ -319,12 +336,15 @@ function makeTimeChartInteractive() {
                 timeChart.data.datasets[0].data[idx] = originalValues[j] + deltaValue;
             });
 
-            timeChart.update("none");
-            drawSelectedHighlight();
-
-            const samples = timeChart.data.datasets[0].data.slice(0, -1);  // lägg till .slice(0, -1)
+            timeChart.update("none"); // Utlöser redraw -> plugin ritar handtaget
+            
+            const samples = timeChart.data.datasets[0].data.slice(0, -1);
             const signal = samples.map(v => ({ re: v, im: 0 }));
-            const result = fft(signal);
+            
+            const result = useDWT 
+                ? discreteHaarWaveletTransform(signal.map(c => c.re)).map(v => ({ re: v, im: 0 }))
+                : fft(signal);
+                
             updateFFT(result);
 
             return;
@@ -355,7 +375,11 @@ function makeTimeChartInteractive() {
             timeChart.update("none");
             const samples = data.slice(0, -1);
             const signal = samples.map(v => ({ re: v, im: 0 }));
-            const result = fft(signal);
+            
+            const result = useDWT 
+                ? discreteHaarWaveletTransform(signal.map(c => c.re)).map(v => ({ re: v, im: 0 }))
+                : fft(signal);
+                
             updateFFT(result);
 
             isUpdating = false;
@@ -367,8 +391,7 @@ function makeTimeChartInteractive() {
         if (isSelecting && selectionEnd) {
             selectedPoints = getPointsInsideRectangle();
             console.log("Valda punkter:", selectedPoints.length);
-            timeChart.draw();
-            drawSelectedHighlight();
+            timeChart.update("none"); // Ändrad till .update()
         }
         isSelecting = false;
         isDraggingSelected = false;
@@ -376,7 +399,6 @@ function makeTimeChartInteractive() {
         dragStartY = null;
     });
 }
-
 
 function reset() {
     if (timeChart) {
@@ -587,6 +609,12 @@ function toggleTransform() {
     document.getElementById("flipHalfBtn").style.display = useDWT ? "none" : "block";
     document.getElementById("togglePhaseBtn").style.display = useDWT ? "none" : "block";
     
+    // Göm/visa Level Slider (bars för DWT)
+    const levelControl = document.getElementById("levelControlContainer");
+    if (levelControl) {
+        levelControl.style.display = useDWT ? "block" : "none";
+    }
+    
     // Byt knapptext
     const btn = document.getElementById("switchDWT");
     btn.textContent = useDWT ? "Switch to FFT" : " Switch to DWT";
@@ -594,4 +622,97 @@ function toggleTransform() {
     if (currentMode === 1) generateNewSine();
     if (currentMode === 2) generateFromFormula();
     if (currentMode === 3) loadWavFile();
+}
+
+
+function getLevelBoundaries(N) {
+    const boundaries = [];
+    
+    let pos = N / 2;
+    boundaries.push(pos);
+    
+    let remaining = N / 4;
+    while (remaining >= 1) {
+        pos += remaining;
+        boundaries.push(pos);
+        remaining = remaining / 2;
+    }
+    
+    return boundaries;
+}
+function drawLevelLines(chart, boundaries) {
+    const ctx = chart.ctx;
+    const xScale = chart.scales.x;
+    const yScale = chart.scales.y;
+
+    ctx.save();
+    ctx.strokeStyle = "rgba(100, 100, 100, 0.5)";
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1;
+    
+    boundaries.forEach(dataIndex => {
+        const x = xScale.getPixelForValue(dataIndex);
+
+        ctx.beginPath();
+        ctx.moveTo(x, yScale.top);
+        ctx.lineTo(x, yScale.bottom);
+        ctx.stroke();
+    });
+
+    ctx.setLineDash([]);
+    ctx.restore();
+}
+
+// slider
+
+const levelInput = document.getElementById("levelInput");
+const levelSlider = document.getElementById("levelSlider");
+
+// När man skriver i input-fältet
+levelInput.addEventListener("input", () => {
+    // Tillåt att fältet tillfälligt raderas (så man hinner skriva en ny siffra)
+    if (levelInput.value === "") return;
+
+    let L = Math.round(Number(levelInput.value));
+
+    // Begränsa till 1–20
+    if (L < 1) L = 1;
+    if (L > 20) L = 20;
+
+    levelInput.value = L;
+    levelSlider.value = L;
+
+    updateResolution(L);
+});
+
+// Om användaren klickar bort från fältet och det är tomt, återställ till 1
+levelInput.addEventListener("blur", () => {
+    if (levelInput.value === "") {
+        levelInput.value = 1;
+        levelSlider.value = 1;
+        updateResolution(1);
+    }
+});
+
+// När man drar i slidern
+levelSlider.addEventListener("input", () => {
+    const L = Number(levelSlider.value);
+    levelInput.value = L;
+
+    updateResolution(L);
+});
+
+function updateResolution(L) {
+    const N = 2 ** L;   // <-- ANTAL PIXLAR
+
+    // Generera ny signal
+    const samples = generateSine(5, N, N + 1);
+    const signal = samples.slice(0, -1).map(v => ({ re: v, im: 0 }));
+
+    const result = useDWT
+        ? discreteHaarWaveletTransform(signal.map(c => c.re)).map(v => ({ re: v, im: 0 }))
+        : fft(signal);
+
+    plotTimeDomain(samples);
+    plotFFT(result);
 }
